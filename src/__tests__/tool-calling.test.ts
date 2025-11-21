@@ -1504,8 +1504,8 @@ describe('Tool Calling', () => {
       expect(eventTypes).toContain('tool-call');
       expect(eventTypes).toContain('finish');
 
-      // Verify text content comes first and finish comes last
-      expect(eventTypes[0]).toBe('text-delta');
+      // Verify text-start comes first and finish comes last
+      expect(eventTypes[0]).toBe('text-start');
       expect(eventTypes[eventTypes.length - 1]).toBe('finish');
 
       // Verify tool call was completed correctly

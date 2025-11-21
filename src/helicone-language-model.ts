@@ -341,6 +341,10 @@ export class HeliconeLanguageModel implements LanguageModelV2 {
       // Map tool call index to ID for streaming chunks
       const indexToId: Map<number, string> = new Map();
 
+      // Track text parts for start/end events
+      const textStarted = new Set<string>();
+      const textEnded = new Set<string>();
+
       const textDecoder = new TextDecoder();
       const reader = response.body!.getReader();
 
@@ -366,6 +370,17 @@ export class HeliconeLanguageModel implements LanguageModelV2 {
                     } as LanguageModelV2StreamPart);
 
                     toolCall.completed = true;
+                  }
+                }
+
+                // Complete any outstanding text parts before finishing
+                for (const id of textStarted) {
+                  if (!textEnded.has(id)) {
+                    controller.enqueue({
+                      type: 'text-end',
+                      id
+                    } as LanguageModelV2StreamPart);
+                    textEnded.add(id);
                   }
                 }
 
@@ -426,6 +441,17 @@ export class HeliconeLanguageModel implements LanguageModelV2 {
                         toolCall.completed = true;
                       }
                     }
+
+                    // Complete any outstanding text parts
+                    for (const id of textStarted) {
+                      if (!textEnded.has(id)) {
+                        controller.enqueue({
+                          type: 'text-end',
+                          id
+                        } as LanguageModelV2StreamPart);
+                        textEnded.add(id);
+                      }
+                    }
                   }
 
                   const delta = choice.delta;
@@ -433,10 +459,19 @@ export class HeliconeLanguageModel implements LanguageModelV2 {
 
                   // Transform text content to text-delta events
                   if (delta.content) {
+                    const id = 'text-0';
+                    // Emit text-start before first text-delta
+                    if (!textStarted.has(id)) {
+                      controller.enqueue({
+                        type: 'text-start',
+                        id
+                      } as LanguageModelV2StreamPart);
+                      textStarted.add(id);
+                    }
                     controller.enqueue({
                       type: 'text-delta',
                       delta: delta.content,
-                      id: 'text-0'
+                      id
                     } as LanguageModelV2StreamPart);
                   }
 
